@@ -1,0 +1,38 @@
+name: CI
+on:
+  push:
+    branches:
+      - 'dev'
+    paths:
+      - '**/*.gradle'
+      - '**/gradle.properties'
+      - '**/src/**'
+      - '**/versions/**'
+      - '.github/**'
+  pull_request:
+  release:
+    types:
+      - published
+jobs:
+  prepare_action_info:
+    if: ${{ !startsWith(github.event.ref, 'refs/tags/') }}
+    uses: ./.github/workflows/prepare_action_info.yml
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[build skip]') }}
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    needs:
+      - prepare_action_info
+    with:
+      build_publish: ${{ fromJSON(needs.prepare_action_info.outputs.build_publish) }}
+      build_version_type: ${{ needs.prepare_action_info.outputs.build_version_type }}
+  publish:
+    if: ${{ fromJSON(needs.prepare_action_info.outputs.publish_enable) }}
+    uses: ./.github/workflows/publish.yml
+    secrets: inherit
+    needs:
+      - build
+      - prepare_action_info
+    with:
+      publish_platform_channel: ${{ needs.prepare_action_info.outputs.publish_platform_channel }}
+      publish_type: ${{ needs.prepare_action_info.outputs.publish_type }}
